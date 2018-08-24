@@ -39,9 +39,9 @@ from tensorflow import keras
 # Helper libraries
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import pose_util
 import os
+import datetime
 
 print(tf.__version__)
 
@@ -49,34 +49,33 @@ print(tf.__version__)
 sensor_data_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", index_col=12)
 sensor_label_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", dtype=int, usecols=[12])
 
-print(sensor_data_frame.head());
-sensor_data_ndarray = sensor_data_frame.values;
+print(sensor_data_frame.head())
+sensor_data_ndarray = sensor_data_frame.values
 
-print(sensor_label_frame.head());
-sensor_label_ndarray = sensor_label_frame.values;
+print(sensor_label_frame.head())
+sensor_label_ndarray = sensor_label_frame.values
 
 # Randomize order of array
-sensor_data_ndarray, sensor_label_ndarray = pose_util.shuffle_in_unison(sensor_data_ndarray, sensor_label_ndarray);
+sensor_data_ndarray, sensor_label_ndarray = pose_util.shuffle_in_unison(sensor_data_ndarray, sensor_label_ndarray)
 
-# Pick training set and test set
-sensor_data_train = sensor_data_ndarray[1: int(len(sensor_data_ndarray)*.6)];
-sensor_data_test = sensor_data_ndarray[int(len(sensor_data_ndarray)*.6) : int(len(sensor_data_ndarray)*.8)];
-sensor_data_validate = sensor_data_ndarray[int(len(sensor_data_ndarray)*.8) :len(sensor_data_ndarray)];
+sensor_data_train = sensor_data_ndarray[1: int(len(sensor_data_ndarray)*.6)]
+sensor_data_test = sensor_data_ndarray[int(len(sensor_data_ndarray)*.6) : int(len(sensor_data_ndarray)*.8)]
+sensor_data_validate = sensor_data_ndarray[int(len(sensor_data_ndarray)*.8) :len(sensor_data_ndarray)]
 
-sensor_label_train = sensor_label_ndarray[1: int(len(sensor_label_ndarray)*.6)];
-sensor_label_test = sensor_label_ndarray[int(len(sensor_label_ndarray)*.6) : int(len(sensor_label_ndarray)*.8)];
-sensor_label_validate = sensor_label_ndarray[int(len(sensor_label_ndarray)*.8) : len(sensor_label_ndarray)];
+sensor_label_train = sensor_label_ndarray[1: int(len(sensor_label_ndarray)*.6)]
+sensor_label_test = sensor_label_ndarray[int(len(sensor_label_ndarray)*.6) : int(len(sensor_label_ndarray)*.8)]
+sensor_label_validate = sensor_label_ndarray[int(len(sensor_label_ndarray)*.8) : len(sensor_label_ndarray)]
 
 class_names = ['standing', 'crouching', 'prone']
 sensor_names = ['linearAccelerometerX', 'linearAccelerometerY',	'linearAccelerometerZ', 'accelerometerX', 'accelerometerY', 'accelerometerZ', 'gyroscopeX', 'gyroscopeY', 'gyroscopeZ',	'gameRotationX', 'gameRotationY', 'gameRotationZ']
 
-print("Sensor data shape");
-print(sensor_data_ndarray.shape);
+print("Sensor data shape")
+print(sensor_data_ndarray.shape)
 
-print("sensor_data_train length: ", len(sensor_data_train));
-print("sensor_data_test length: ", len(sensor_data_test));
-print("sensor_label_train length: ", len(sensor_label_train));
-print("sensor_label_test length: ", len(sensor_label_test));
+print("sensor_data_train length: ", len(sensor_data_train))
+print("sensor_data_test length: ", len(sensor_data_test))
+print("sensor_label_train length: ", len(sensor_label_train))
+print("sensor_label_test length: ", len(sensor_label_test))
 
 print(sensor_data_train.shape)
 print(sensor_label_train.shape)
@@ -104,6 +103,7 @@ print(sensor_label_test.shape)
 #     plt.imshow(train_images[i], cmap=plt.cm.binary)
 #     plt.xlabel(class_names[train_labels[i]])
 
+# Try this with a sigmoid function
 # Define the model
 model = keras.Sequential([
     #We don't need to flatten, we've already got 2d arrays
@@ -112,10 +112,13 @@ model = keras.Sequential([
     keras.layers.Dense(3, activation=tf.nn.softmax)
 ])
 
-# Compile the model
+# Compile the models
 model.compile(optimizer=tf.train.AdamOptimizer(),
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
+# model.compile(optimizer=tf.keras.optimizers.Adam(),
+#               loss='sparse_categorical_crossentropy',
+#               metrics=['accuracy'])
 
 # Define the callback for model training, which periodically saves the model
 checkpoint_path = "./training_1/cp.ckpt"
@@ -133,11 +136,31 @@ cp_callback_2 = tf.keras.callbacks.ModelCheckpoint(
 model.fit(x=sensor_data_train,
           y=sensor_label_train,
           epochs=5,
-          callbacks=[cp_callback, cp_callback_2])
+          # callbacks=[cp_callback, cp_callback_2])
+          callbacks=[cp_callback])
+
 
 # Save whole model including weights plus current state
 # Save entire model to a HDF5 file
 model.save(filepath='./whole_model/my_model.h5')
+
+# TODO Try to invoke the python model freezing script from here
+# input_graph_path = "./graphs/pose_model_serial.pb"
+# checkpoint_path = './tf_sess_chkp/checkpoint.chpk'
+# input_saver_def_path = ""
+# input_binary = True
+# output_node_names = model.output_names #output node name
+# restore_op_name = "save/restore_all"
+# filename_tensor_name = "save/Const:0"
+# output_frozen_graph_name = 'frozen_'+model.name+'.pb'
+# clear_devices = True
+#
+#
+# freeze_graph.freeze_graph(input_graph_path, input_saver_def_path,
+#                           input_binary, checkpoint_path, output_node_names,
+#                           restore_op_name, filename_tensor_name,
+#                           output_frozen_graph_name, clear_devices, "")
+#
 
 test_loss, test_acc = model.evaluate(sensor_data_test, sensor_label_test)
 
@@ -151,39 +174,27 @@ print(np.argmax(predictions[0], axis=0));
 
 print(sensor_label_validate[0]);
 
-# Plot the first 25 test images, their predicted label, and the true label
-# Color correct predictions in green, incorrect predictions in red
-# plt.figure(figsize=(10, 10))
-# for i in range(25):
-#     plt.subplot(5, 5, i + 1)
-#     plt.xticks([])
-#     plt.yticks([])
-#     plt.grid('off')
-#     plt.imshow(test_images[i], cmap=plt.cm.binary)
-#     predicted_label = np.argmax(predictions[i])
-#     true_label = test_labels[i]
-#     if predicted_label == true_label:
-#         color = 'green'
-#     else:
-#         color = 'red'
-#     plt.xlabel("{} ({})".format(class_names[predicted_label],
-#                                 class_names[true_label]),
-#                color=color)
+# Prep variables for graph freeze
+today = datetime.datetime.today()
+outputs = [node.op.name for node in model.outputs];
 
-# Grab an image from the test dataset
-# img = test_images[0]
-#
-# print(img.shape)
-#
-# # Add the image to a batch where it's the only member.
-# img = (np.expand_dims(img, 0))
-#
-# print(img.shape)
-#
-# predictions = model.predict(img)
-#
-# print(predictions)
-#
-# prediction = predictions[0]
-#
-# np.argmax(prediction)
+#TODO Save whole model to pb file
+with keras.backend.get_session() as sess:
+    sess.run(tf.global_variables_initializer())
+    sess.run(tf.tables_initializer())
+    frozen_graph = pose_util.freeze_session(sess, tf,
+                                            output_names=outputs
+                                            )
+    tf.train.write_graph(frozen_graph, './frozen_graphs', "frozen_pose_model" + today.strftime("%d_%m_%Y") + ".pb", as_text=True)
+
+#TODO Attempt to save h5 to pb
+# keras_to_tensorflow.convertGraph('./whole_model/my_model.h5', './frozen_graphs', 3, 'pose', 'pose_graph_def.pb');
+
+#TODO output pb file
+tf.train.write_graph(keras.backend.get_session().graph, './graphs', "pose_model_serial.pb", as_text=False)
+
+saver = tf.train.Saver()
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    sess.run(tf.tables_initializer())
+    save_path = saver.save(sess, './tf_sess_chkp/checkpoint.chpk')
