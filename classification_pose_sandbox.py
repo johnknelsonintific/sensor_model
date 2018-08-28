@@ -82,7 +82,27 @@ print(sensor_label_train.shape)
 print(sensor_data_test.shape)
 print(sensor_label_test.shape)
 
+# plt.figure()
+# plt.imshow(train_images[0])
+# plt.colorbar()
+# plt.gca().grid(False)
+
 #TODO divide by MAX (but not yet, all values are small aside from one feature which we may need to scale
+#
+# train_images = train_images / 255.0
+#
+# test_images = test_images / 255.0
+
+#TODO Plot some of the training data if we can figure out how, for now the evaluate->view as array works great
+# plt.figure(figsize=(10, 10))
+# for i in range(25):
+#     plt.subplot(5, 5, i + 1)
+#     plt.xticks([])
+#     plt.yticks([])
+#     plt.grid('off')
+#     plt.imshow(train_images[i], cmap=plt.cm.binary)
+#     plt.xlabel(class_names[train_labels[i]])
+
 #TODO Try this with a sigmoid function
 # Define the model
 # model = keras.Sequential([
@@ -98,11 +118,13 @@ model = keras.Sequential([
     keras.layers.Dense(128, input_shape=(12,), activation=tf.nn.relu),
     keras.layers.Dense(3, input_shape=(128,), activation=tf.nn.softmax)
 ])
-
-# Compile the models and define loss function (this is like gradient descent)
+# Compile the models
 model.compile(optimizer=tf.train.AdamOptimizer(),
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
+# model.compile(optimizer=tf.keras.optimizers.Adam(),
+#               loss='sparse_categorical_crossentropy',
+#               metrics=['accuracy'])
 
 # Define the callback for model training, which periodically saves the model
 checkpoint_path = "./training_1/cp.ckpt"
@@ -111,7 +133,6 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 
-# Save a checkpoint every epoch
 checkpoint_path = "./training_2/cp-{epoch:04d}.ckpt"
 cp_callback_2 = tf.keras.callbacks.ModelCheckpoint(
     checkpoint_path, verbose=1, save_weights_only=True,
@@ -122,7 +143,26 @@ model.fit(x=sensor_data_train,
           y=sensor_label_train,
           epochs=5,
           # callbacks=[cp_callback, cp_callback_2])
-          callbacks=[cp_callback, cp_callback_2])
+          callbacks=[cp_callback])
+
+
+# TODO Try to invoke the python model freezing script from here
+# input_graph_path = "./graphs/pose_model_serial.pb"
+# checkpoint_path = './tf_sess_chkp/checkpoint.chpk'
+# input_saver_def_path = ""
+# input_binary = True
+# output_node_names = model.output_names #output node name
+# restore_op_name = "save/restore_all"
+# filename_tensor_name = "save/Const:0"
+# output_frozen_graph_name = 'frozen_'+model.name+'.pb'
+# clear_devices = True
+#
+#
+# freeze_graph.freeze_graph(input_graph_path, input_saver_def_path,
+#                           input_binary, checkpoint_path, output_node_names,
+#                           restore_op_name, filename_tensor_name,
+#                           output_frozen_graph_name, clear_devices, "")
+#
 
 test_loss, test_acc = model.evaluate(sensor_data_test, sensor_label_test)
 
@@ -136,13 +176,56 @@ print(np.argmax(predictions[0], axis=0));
 
 print(sensor_label_validate[0]);
 
+# Prep variables for graph freeze
+today = datetime.datetime.today()
+outputs = [node.op.name for node in model.outputs];
+
 #TODO Try some suggestion from a github issue here: https://github.com/keras-team/keras/issues/6646#issuecomment-313426350
 for layer in model.layers:
     layer.trainable = False
 
 # Save whole model including weights plus current state
+# Save entire model to a HDF5 file
 model.save(filepath='./whole_model/my_model.h5', overwrite=True)
-
-# Save h5 to pb
+#TODO Attempt to save h5 to pb
 today = datetime.datetime.today()
-pose_util.convertGraph('./whole_model/my_model.h5', './frozen_graphs', 3, 'pose', 'pose_graph_def' + today.strftime("%d_%m-%H_%M_%S") +'.pb', K=keras);
+pose_util.convertGraph('./whole_model/my_model.h5', './frozen_graphs', 3, 'pose', 'pose_graph_def' + today.strftime("%d_%m_%Y") +'.pb', K=keras);
+
+#
+# model.compile(optimizer=tf.train.AdamOptimizer(),
+#                   loss='sparse_categorical_crossentropy',
+#                   metrics=['accuracy'])
+
+# #TODO Save whole model to pb file
+# with keras.backend.get_session() as sess:
+#     sess.run(tf.global_variables_initializer())
+#     sess.run(tf.tables_initializer())
+#     frozen_graph = pose_util.freeze_session(sess, tf,
+#                                             output_names=outputs
+#                                             )
+#     tf.train.write_graph(frozen_graph, './frozen_graphs', "frozen_pose_model" + today.strftime("%d_%m_%Y") + ".pb", as_text=True)
+
+#TODO Attempt graph freeze from session per http://aqibsaeed.github.io/2017-05-02-deploying-tensorflow-model-andorid-device-human-activity-recognition/
+# from tensorflow.python.tools import freeze_graph
+# from tensorflow.python.tools import optimize_for_inference_lib
+#
+# saver = tf.train.Saver()
+# with tf.Session() as session:
+#     session.run(tf.global_variables_initializer())
+#     tf.train.write_graph(session.graph_def, './graphs', 'har.pbtxt')
+#     saver.save(session,save_path="./training_3/har.ckpt")
+#
+# freeze_graph.freeze_graph(input_graph = "./graphs/har.pbtxt",  input_saver="",
+#              input_binary=False, input_checkpoint = "./training_3/har.ckpt", output_node_names=outputs,
+#              restore_op_name="save/restore_all", filename_tensor_name="save/Const:0",
+#              output_graph="./frozen_graphs/frozen_har.pb", clear_devices=True, initializer_nodes="")
+
+
+# #TODO output pb file
+# tf.train.write_graph(keras.backend.get_session().graph, './graphs', "pose_model_serial.pb", as_text=False)
+#
+# saver = tf.train.Saver()
+# with tf.Session() as sess:
+#     sess.run(tf.global_variables_initializer())
+#     sess.run(tf.tables_initializer())
+#     save_path = saver.save(sess, './tf_sess_chkp/checkpoint.chpk')
