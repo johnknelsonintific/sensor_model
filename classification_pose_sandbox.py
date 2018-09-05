@@ -34,6 +34,7 @@
 
 # TensorFlow and tf.keras
 import tensorflow as tf
+import tensorboard as tb
 from tensorflow import keras
 
 # Helper libraries
@@ -46,8 +47,23 @@ import datetime
 print(tf.__version__)
 
 #TODO iterate through many CSVs and concatenate
-sensor_data_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", index_col=12)
-sensor_label_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", dtype=int, usecols=[12])
+data_columns = 12
+csvDirectory = "/Users/205314/Documents/SYNISR/SensorSamples/"
+sensor_data_frame = pd.DataFrame();
+sensor_label_frame =  pd.DataFrame();
+for file in os.listdir(csvDirectory):
+    if file.endswith('.csv'):
+        sensor_data_frame_temp = pd.read_csv( csvDirectory + file, sep=",", index_col=data_columns)
+        sensor_label_frame_temp = pd.read_csv(csvDirectory + file, sep=",", dtype=int, usecols=[data_columns])
+
+        data_frames = [sensor_data_frame, sensor_data_frame_temp]
+        sensor_data_frame = pd.concat(data_frames)
+
+        label_frames = [sensor_label_frame, sensor_label_frame_temp]
+        sensor_label_frame = pd.concat(label_frames)
+
+# sensor_data_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", index_col=12)
+# sensor_label_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", dtype=int, usecols=[12])
 
 print(sensor_data_frame.head())
 sensor_data_ndarray = sensor_data_frame.values
@@ -125,6 +141,10 @@ model.compile(optimizer=tf.train.AdamOptimizer(),
 # model.compile(optimizer=tf.keras.optimizers.Adam(),
 #               loss='sparse_categorical_crossentropy',
 #               metrics=['accuracy'])
+# model.compile(optimizer=tf.keras.optimizers.Adam(),
+#               loss='sparse_categorical_crossentropy',
+#               loss=keras.losses.sparse_categorical_crossentropy,
+#               metrics=['accuracy'])
 
 # Define the callback for model training, which periodically saves the model
 checkpoint_path = "./training_1/cp.ckpt"
@@ -139,11 +159,13 @@ cp_callback_2 = tf.keras.callbacks.ModelCheckpoint(
     # Save weights, every epoch.
     period=1)
 
+cp_callback_3 = tf.keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=0, write_graph=True, write_images=False)
+
 model.fit(x=sensor_data_train,
           y=sensor_label_train,
           epochs=5,
           # callbacks=[cp_callback, cp_callback_2])
-          callbacks=[cp_callback])
+          callbacks=[cp_callback_3])
 
 
 # TODO Try to invoke the python model freezing script from here
@@ -169,6 +191,8 @@ test_loss, test_acc = model.evaluate(sensor_data_test, sensor_label_test)
 print('Test accuracy:', test_acc)
 
 predictions = model.predict(sensor_data_validate)
+
+one_prediction = model.predict(sensor_data_validate)
 
 predictions[0]
 

@@ -101,7 +101,7 @@ model = keras.Sequential([
 
 # Compile the models and define loss function (this is like gradient descent)
 model.compile(optimizer=tf.train.AdamOptimizer(),
-              loss='sparse_categorical_crossentropy',
+              loss=keras.losses.sparse_categorical_crossentropy,
               metrics=['accuracy'])
 
 # Define the callback for model training, which periodically saves the model
@@ -111,18 +111,13 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 
-# Save a checkpoint every epoch
-checkpoint_path = "./training_2/cp-{epoch:04d}.ckpt"
-cp_callback_2 = tf.keras.callbacks.ModelCheckpoint(
-    checkpoint_path, verbose=1, save_weights_only=True,
-    # Save weights, every epoch.
-    period=1)
+tb_callback = tf.keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=0, write_graph=True, write_images=False)
 
 model.fit(x=sensor_data_train,
           y=sensor_label_train,
           epochs=5,
           # callbacks=[cp_callback, cp_callback_2])
-          callbacks=[cp_callback, cp_callback_2])
+          callbacks=[cp_callback, tb_callback])
 
 test_loss, test_acc = model.evaluate(sensor_data_test, sensor_label_test)
 
