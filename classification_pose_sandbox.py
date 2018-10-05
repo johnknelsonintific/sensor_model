@@ -42,18 +42,19 @@ import numpy as np
 import pandas as pd
 import pose_util
 import os
+import subprocess
 import datetime
 
 print(tf.__version__)
 
-#TODO iterate through many CSVs and concatenate
+# iterate through many CSVs and concatenate
 data_columns = 12
 csvDirectory = "/Users/205314/Documents/SYNISR/SensorSamples/"
 sensor_data_frame = pd.DataFrame();
 sensor_label_frame =  pd.DataFrame();
 for file in os.listdir(csvDirectory):
     if file.endswith('.csv'):
-        sensor_data_frame_temp = pd.read_csv( csvDirectory + file, sep=",", index_col=data_columns)
+        sensor_data_frame_temp = pd.read_csv(csvDirectory + file, sep=",", index_col=data_columns)
         sensor_label_frame_temp = pd.read_csv(csvDirectory + file, sep=",", dtype=int, usecols=[data_columns])
 
         data_frames = [sensor_data_frame, sensor_data_frame_temp]
@@ -62,8 +63,13 @@ for file in os.listdir(csvDirectory):
         label_frames = [sensor_label_frame, sensor_label_frame_temp]
         sensor_label_frame = pd.concat(label_frames)
 
+# The CSV which produces a very simple and decent model for stand vs crouch
 # sensor_data_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", index_col=12)
 # sensor_label_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", dtype=int, usecols=[12])
+
+# TODO Debug statement to find problematic csvs
+# sensor_data_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog09_07_11_32_05.csv", sep=",", index_col=12)
+# sensor_label_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog09_07_11_32_05.csv", sep=",", dtype=int, usecols=[12])
 
 print(sensor_data_frame.head())
 sensor_data_ndarray = sensor_data_frame.values
@@ -147,13 +153,13 @@ model.compile(optimizer=tf.train.AdamOptimizer(),
 #               metrics=['accuracy'])
 
 # Define the callback for model training, which periodically saves the model
-checkpoint_path = "./training_1/cp.ckpt"
+checkpoint_path = "./training/training_1/cp.ckpt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 
-checkpoint_path = "./training_2/cp-{epoch:04d}.ckpt"
+checkpoint_path = "./training/training_2/cp-{epoch:04d}.ckpt"
 cp_callback_2 = tf.keras.callbacks.ModelCheckpoint(
     checkpoint_path, verbose=1, save_weights_only=True,
     # Save weights, every epoch.
@@ -203,24 +209,26 @@ print(sensor_label_validate[0]);
 # Prep variables for graph freeze
 today = datetime.datetime.today()
 outputs = [node.op.name for node in model.outputs];
+inputs = [node.op.name for node in model.inputs];
 
 #TODO Try some suggestion from a github issue here: https://github.com/keras-team/keras/issues/6646#issuecomment-313426350
 for layer in model.layers:
     layer.trainable = False
 
-# Save whole model including weights plus current state
-# Save entire model to a HDF5 file
-model.save(filepath='./whole_model/my_model.h5', overwrite=True)
-#TODO Attempt to save h5 to pb
+# Prep for saving
 today = datetime.datetime.today()
-pose_util.convertGraph('./whole_model/my_model.h5', './frozen_graphs', 3, 'pose', 'pose_graph_def' + today.strftime("%d_%m_%Y") +'.pb', K=keras);
+now_string = today.strftime("%d_%m-%H_%M_%S")
+whole_file_name = './whole_model/my_model' + now_string + '.h5'
 
-#
-# model.compile(optimizer=tf.train.AdamOptimizer(),
-#                   loss='sparse_categorical_crossentropy',
-#                   metrics=['accuracy'])
+# Save entire model to a HDF5 file
+model.save(filepath=whole_file_name, overwrite=True)
 
-# #TODO Save whole model to pb file
+# Save h5 to pb
+frozen_graph_directory = './frozen_graphs'
+frozen_graph_name = 'pose_graph_def' + now_string + '.pb'
+pose_util.convertGraph(whole_file_name, frozen_graph_directory, 3, 'pose', frozen_graph_name, K=keras);
+
+#TODO Save whole model to pb file
 # with keras.backend.get_session() as sess:
 #     sess.run(tf.global_variables_initializer())
 #     sess.run(tf.tables_initializer())
@@ -237,10 +245,10 @@ pose_util.convertGraph('./whole_model/my_model.h5', './frozen_graphs', 3, 'pose'
 # with tf.Session() as session:
 #     session.run(tf.global_variables_initializer())
 #     tf.train.write_graph(session.graph_def, './graphs', 'har.pbtxt')
-#     saver.save(session,save_path="./training_3/har.ckpt")
+#     saver.save(session,save_path="./training/training_3/har.ckpt")
 #
 # freeze_graph.freeze_graph(input_graph = "./graphs/har.pbtxt",  input_saver="",
-#              input_binary=False, input_checkpoint = "./training_3/har.ckpt", output_node_names=outputs,
+#              input_binary=False, input_checkpoint = "./training/training_3/har.ckpt", output_node_names=outputs,
 #              restore_op_name="save/restore_all", filename_tensor_name="save/Const:0",
 #              output_graph="./frozen_graphs/frozen_har.pb", clear_devices=True, initializer_nodes="")
 

@@ -45,9 +45,21 @@ import datetime
 
 print(tf.__version__)
 
-#TODO iterate through many CSVs and concatenate
-sensor_data_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", index_col=12)
-sensor_label_frame = pd.read_csv("/Users/205314/Documents/SYNISR/SensorSamples/IRADSensorLog08_01_01_06_18.csv", sep=",", dtype=int, usecols=[12])
+# iterate through many CSVs and concatenate
+data_columns = 12
+csvDirectory = "/Users/205314/Documents/SYNISR/SensorSamples/"
+sensor_data_frame = pd.DataFrame();
+sensor_label_frame =  pd.DataFrame();
+for file in os.listdir(csvDirectory):
+    if file.endswith('.csv'):
+        sensor_data_frame_temp = pd.read_csv( csvDirectory + file, sep=",", index_col=data_columns)
+        sensor_label_frame_temp = pd.read_csv(csvDirectory + file, sep=",", dtype=int, usecols=[data_columns])
+
+        data_frames = [sensor_data_frame, sensor_data_frame_temp]
+        sensor_data_frame = pd.concat(data_frames)
+
+        label_frames = [sensor_label_frame, sensor_label_frame_temp]
+        sensor_label_frame = pd.concat(label_frames)
 
 print(sensor_data_frame.head())
 sensor_data_ndarray = sensor_data_frame.values
@@ -105,7 +117,7 @@ model.compile(optimizer=tf.train.AdamOptimizer(),
               metrics=['accuracy'])
 
 # Define the callback for model training, which periodically saves the model
-checkpoint_path = "./training_1/cp.ckpt"
+checkpoint_path = "./training/training_1/cp.ckpt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                  save_weights_only=True,

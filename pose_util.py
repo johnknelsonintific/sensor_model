@@ -15,7 +15,6 @@ def shuffle_in_unison(a, b):
         shuffled_b[new_index] = b[old_index]
     return shuffled_a, shuffled_b
 
-
 def freeze_session(session, tf, keep_var_names=None, output_names=None, clear_devices=True):
     """
     Freezes the state of a session into a pruned computation graph.
@@ -46,8 +45,7 @@ def freeze_session(session, tf, keep_var_names=None, output_names=None, clear_de
         return frozen_graph
 
 
-def convertGraph(modelPath, outdir, numoutputs, prefix, name, K=None):
-    '''
+'''
     Converts an HD5F file to a .pb file for use with Tensorflow.
     Args:
         modelPath (str): path to the .h5 file
@@ -57,8 +55,8 @@ def convertGraph(modelPath, outdir, numoutputs, prefix, name, K=None):
              name (str):
     Returns:
         None
-    '''
-
+'''
+def convertGraph(modelPath, outdir, numoutputs, prefix, name, K=None):
     # NOTE: If using Python > 3.2, this could be replaced with os.makedirs( name, exist_ok=True )
     if not os.path.isdir(outdir):
         os.mkdir(outdir)
@@ -104,3 +102,24 @@ def convertGraph(modelPath, outdir, numoutputs, prefix, name, K=None):
         args = parser.parse_args()
 
         convertGraph(args.model, args.outdir, args.num_out, args.prefix, args.name)
+
+
+'''
+    Logs a pb file
+    Args:
+        model_filename (str): path to the .pb file
+        output_path (str): path to the output directory
+    Returns:
+        None
+'''
+def log_graph_file(model_filename, output_path):
+    import tensorflow as tf
+    from tensorflow.python.platform import gfile
+    with tf.Session() as sess:
+        with gfile.FastGFile(model_filename, 'rb') as f:
+            graph_def = tf.GraphDef()
+            graph_def.ParseFromString(f.read())
+            g_in = tf.import_graph_def(graph_def)
+    LOGDIR=output_path
+    train_writer = tf.summary.FileWriter(LOGDIR)
+    train_writer.add_graph(sess.graph)
